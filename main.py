@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # Importing python3 from local, just use "python3 <binary>" if is not the same location
 
-# RECONOCIMIENTO DE PATRONES - RETO 1
+# RECONOCIMIENTO DE PATRONES - RETO 2
 # Máster en Vision Artificial
 # Luis Rosario Tremoulet y Vicente Gilabert Maño.
 
@@ -14,15 +14,15 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
 
 # [GLOBAL VARIABLES]
-is_printing_shapes = True       # Do you want to print the datasets sizes ?
-is_showing_image = True         # Do you want to see the representation of the three's and seven's ?
+is_printing_shapes = False       # Do you want to print the datasets sizes ?
+is_showing_image = False         # Do you want to see the representation of the three's and seven's ?
 is_showing_extractions = True   # Do you want to see the extractions x1 and x2 ?
 is_saving_model = False         # Do you want to save the model into a file (with pickle) ?
 is_testing_model = True        # Do you want to test the model with the test set ?
 is_resulting_model = True      # Do you want to save the results from the 10.000 MNIST files ?
 
 # To force that every run produces the same outcome (comment, or remove, to get randomness)
-np.random.seed(seed=123)
+#np.random.seed(seed=123)
 
 # [FUNCTION DECLARATIONS]
 
@@ -55,14 +55,23 @@ def split_train_test(data, test_ratio):
 # Getting extraction's of the three's and seven's = x1, x2
 def feat_extraction(data, label, theta=0.5):
 
-    features = np.zeros([data.shape[0], 3])  # <- allocate memory with zeros
+    features = np.zeros([data.shape[0], 7])  # <- allocate memory with zeros
     data = data.values.reshape([data.shape[0], 28, 28])
     # -> axis 0: id of instance, axis 1: width(cols) , axis 2: height(rows)
     for k in range(data.shape[0]):
+        # current image
         x = data[k, :, :]
+
+        # --width feature
+        sum_cols = x.sum(axis=0)  # <- axis0 of x, not of data!!
+        indc = np.argwhere(sum_cols > theta * sum_cols.max())
+        width = indc[-1] - indc[0]
+        col_3maxs = np.argsort(sum_cols)[-3:]
+        # --height feature
         sum_rows = x.sum(axis=1)  # <- axis1 of x, not of data!!
         indr = np.argwhere(sum_rows > theta * sum_rows.max())
         height = indr[-1] - indr[0]
+        row_3maxs = np.argsort(sum_rows)[-3:]
 
         sum_rows_tmp1 = 0
         for tmp in range(6):
@@ -71,12 +80,20 @@ def feat_extraction(data, label, theta=0.5):
 
         x1 = height ** (1 / 3) / 2.7
         x2 = sum_rows_tmp1 / 5.0
+        x3 = width ** (1 / 3) / 2.7
+        x4 = col_3maxs[0]
+        x5 = row_3maxs[1]
+        x6 = col_3maxs[2]
 
         features[k, 0] = x1
         features[k, 1] = x2
         features[k, 2] = label
+        features[k, 3] = x3
+        features[k, 4] = x4
+        features[k, 5] = x5
+        features[k, 6] = x6
 
-    col_names = ['x1', 'x2', 'label']
+    col_names = ['x1', 'x2', 'label', 'x3', 'x4', 'x5', 'x6']
     return pd.DataFrame(features, columns=col_names)
 
 
@@ -101,8 +118,8 @@ def result_model(model):
 # Function to test model with our testing dataset
 def test_model(model, test_set, show_cm=True):
 
-    predictions = model.predict(test_set.iloc[:, [0, 1]])
-    score = model.score(test_set.iloc[:, [0, 1]], test_set.iloc[:, 2])
+    predictions = model.predict(test_set.iloc[:, [0, 1, 3, 4, 5, 6]])
+    score = model.score(test_set.iloc[:, [0, 1, 3, 4, 5, 6]], test_set.iloc[:, 2])
     print("Score of the model: ", score)
     print("Mean square error: ", mean_squared_error(test_set.iloc[:, 2], predictions))
     cm = confusion_matrix(test_set.iloc[:, 2], predictions, labels=model.classes_)
@@ -119,7 +136,7 @@ def test_model(model, test_set, show_cm=True):
 # Show plot with our features for both numbers.
 def show_extraction(extraction0, extraction3, extraction6, extraction9):
 
-    f1, ax = plt.subplots(2)  # 4 size of the subplot
+    f1, ax = plt.subplots(3)  # 4 size of the subplot
 
     ax[0].plot(jitter(extraction0['x1']), 'o', color="blue", ms=0.7)
     ax[0].plot(jitter(extraction3['x1']), 'x', color="red", ms=0.7)
@@ -132,6 +149,12 @@ def show_extraction(extraction0, extraction3, extraction6, extraction9):
     ax[1].plot(jitter(extraction6['x2']), 'v', color="black", ms=0.7)
     ax[1].plot(jitter(extraction9['x2']), ',', color="yellow", ms=0.7)
     ax[1].title.set_text("NORM - Count 6 firts pixels")
+
+    ax[2].plot(jitter(extraction0['x3']), 'o', color="blue", ms=0.7)
+    ax[2].plot(jitter(extraction3['x3']), 'x', color="red", ms=0.7)
+    ax[2].plot(jitter(extraction6['x3']), 'v', color="black", ms=0.7)
+    ax[2].plot(jitter(extraction9['x3']), ',', color="yellow", ms=0.7)
+    ax[2].title.set_text("NORM - Width")
 
     plt.show()
 
@@ -243,8 +266,8 @@ def main():
         show_extraction(extraction_train_set_0, extraction_train_set_3, extraction_train_set_6, extraction_train_set_9)
 
     # --- Create logistic regresion model and train (fit)
-    model = LogisticRegression()
-    model.fit(extraction_train_set_all.iloc[:, [0, 1]], extraction_train_set_all.iloc[:, 2])
+    model = LogisticRegression(solver='lbfgs', max_iter=6000)
+    model.fit(extraction_train_set_all.iloc[:, [0, 1, 3, 4, 5, 6]], extraction_train_set_all.iloc[:, 2])
 
     # --- Save model
     if is_saving_model:
