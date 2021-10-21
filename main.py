@@ -12,14 +12,16 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
+from sklearn.preprocessing import MinMaxScaler
 
 # [GLOBAL VARIABLES]
 is_printing_shapes = False       # Do you want to print the datasets sizes ?
 is_showing_image = False         # Do you want to see the representation of the three's and seven's ?
-is_showing_extractions = True   # Do you want to see the extractions x1 and x2 ?
-is_saving_model = False         # Do you want to save the model into a file (with pickle) ?
+is_showing_extractions = False   # Do you want to see the extractions x1 and x2 ?
+is_saving_model = True         # Do you want to save the model into a file (with pickle) ?
 is_testing_model = True        # Do you want to test the model with the test set ?
 is_resulting_model = True      # Do you want to save the results from the 10.000 MNIST files ?
+
 
 # To force that every run produces the same outcome (comment, or remove, to get randomness)
 #np.random.seed(seed=123)
@@ -51,11 +53,10 @@ def split_train_test(data, test_ratio):
     test_set = data.iloc[test_indices]
     return train_set.reset_index(drop=True), test_set.reset_index(drop=True)
 
-
 # Getting extraction's of the three's and seven's = x1, x2
 def feat_extraction(data, label, theta=0.5):
 
-    features = np.zeros([data.shape[0], 7])  # <- allocate memory with zeros
+    features = np.zeros([data.shape[0], 7 + 49])  # <- allocate memory with zeros
     data = data.values.reshape([data.shape[0], 28, 28])
     # -> axis 0: id of instance, axis 1: width(cols) , axis 2: height(rows)
     for k in range(data.shape[0]):
@@ -78,32 +79,50 @@ def feat_extraction(data, label, theta=0.5):
             if sum_rows[tmp] > theta * sum_rows[tmp].max():
                 sum_rows_tmp1 += 1
 
-        x1 = height ** (1 / 3) / 2.7
-        x2 = sum_rows_tmp1 / 5.0
-        x3 = width ** (1 / 3) / 2.7
-        x4 = col_3maxs[0]
-        x5 = row_3maxs[1]
-        x6 = col_3maxs[2]
+        x1 = height ** (1 / 3)
+        x2 = sum_rows_tmp1
+        x3 = width ** (1 / 3)
+        x4 = row_3maxs[1]
+        x5 = (row_3maxs[1] / (col_3maxs[0] + col_3maxs[2])) ** 2
+        x6 = col_3maxs[2] - row_3maxs[0] / row_3maxs[2]
 
-        features[k, 0] = x1
-        features[k, 1] = x2
-        features[k, 2] = label
+        features[k, 0] = label
+        features[k, 1] = x1
+        features[k, 2] = x2
         features[k, 3] = x3
         features[k, 4] = x4
         features[k, 5] = x5
         features[k, 6] = x6
 
-    col_names = ['x1', 'x2', 'label', 'x3', 'x4', 'x5', 'x6']
+        jump = 3
+        itr = 7
+        for i in range(0, 7):
+            a1 = jump * i + i
+            a2 = jump * i + jump + i
+            for y in range(0, 7):
+                a3 = jump * y + y
+                a4 = jump * y + jump + y
+                features[k, itr] = x[a1: a2, a3: a4].sum()
+                itr += 1
+
+    col_names = ['label', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10',
+                 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20',
+                 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30',
+                 'x31', 'x32', 'x33', 'x34', 'x35', 'x36', 'x37', 'x38', 'x39', 'x40',
+                 'x41', 'x42', 'x43', 'x44', 'x45', 'x46', 'x47', 'x48', 'x49', 'x50',
+                 'x51', 'x52', 'x53', 'x54', 'x55']
     return pd.DataFrame(features, columns=col_names)
+    return pd.DataFrame(features)
 
 
 # Function to predict results with competition dataset
-def result_model(model):
+def result_model(model, transformer):
 
     reto1_dataset = pd.read_csv("./Datasets/reto2_X.csv", header=None)
     reto1_dataset = scale_to_unit(reto1_dataset)
     reto1_dataset = feat_extraction(reto1_dataset, 2)
     reto1_dataset = reto1_dataset.drop(columns=['label'])
+    reto1_dataset = transformer.transform(reto1_dataset)
     predictions_reto1 = model.predict(reto1_dataset)
 
     # --- Replace 0 -> 3 and 1 -> 7.
@@ -116,13 +135,13 @@ def result_model(model):
 
 
 # Function to test model with our testing dataset
-def test_model(model, test_set, show_cm=True):
+def test_model(model, carac_test, label_test, show_cm=True):
 
-    predictions = model.predict(test_set.iloc[:, [0, 1, 3, 4, 5, 6]])
-    score = model.score(test_set.iloc[:, [0, 1, 3, 4, 5, 6]], test_set.iloc[:, 2])
+    predictions = model.predict(carac_test)
+    score = model.score(carac_test, label_test)
     print("Score of the model: ", score)
-    print("Mean square error: ", mean_squared_error(test_set.iloc[:, 2], predictions))
-    cm = confusion_matrix(test_set.iloc[:, 2], predictions, labels=model.classes_)
+    print("Mean square error: ", mean_squared_error(label_test, predictions))
+    cm = confusion_matrix(label_test, predictions, labels=model.classes_)
 
     if show_cm:
         disp = ConfusionMatrixDisplay(cm, display_labels=model.classes_)
@@ -265,9 +284,15 @@ def main():
     if is_showing_extractions:
         show_extraction(extraction_train_set_0, extraction_train_set_3, extraction_train_set_6, extraction_train_set_9)
 
+    transformer = MinMaxScaler()
+    label_train = extraction_train_set_all.iloc[:, 0]
+    label_test = extraction_test_set_all.iloc[:, 0]
+    carac_train = transformer.fit_transform(extraction_train_set_all.iloc[:, 1: 56])
+    carac_test = transformer.transform(extraction_test_set_all.iloc[:, 1: 56])
+
     # --- Create logistic regresion model and train (fit)
-    model = LogisticRegression(solver='lbfgs', max_iter=6000)
-    model.fit(extraction_train_set_all.iloc[:, [0, 1, 3, 4, 5, 6]], extraction_train_set_all.iloc[:, 2])
+    model = LogisticRegression(solver='lbfgs', max_iter=50000)
+    model.fit(carac_train, label_train)
 
     # --- Save model
     if is_saving_model:
@@ -276,11 +301,11 @@ def main():
 
     # --- Test model with test data
     if is_testing_model:
-        test_model(model, extraction_test_set_all, show_cm=True)
+        test_model(model, carac_test, label_test, show_cm=False)
 
     # --- Get prediction using our model and competition dataset. Generate .csv file with results.
     if is_resulting_model:
-        result_model(model)
+        result_model(model, transformer)
 
 
 # [MAIN BODY]
