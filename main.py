@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import maxabs_scale
 
 # [GLOBAL VARIABLES]
 is_printing_shapes = False       # Do you want to print the datasets sizes ?
@@ -105,6 +106,9 @@ def feat_extraction(data, label, theta=0.5):
                 features[k, itr] = x[a1: a2, a3: a4].sum()
                 itr += 1
 
+    #for i in range(1, 43):
+    #     features[:, i] = maxabs_scale(features[:, i])
+
     col_names = ['label', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10',
                  'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20',
                  'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30',
@@ -112,7 +116,6 @@ def feat_extraction(data, label, theta=0.5):
                  'x41', 'x42', 'x43', 'x44', 'x45', 'x46', 'x47', 'x48', 'x49', 'x50',
                  'x51', 'x52', 'x53', 'x54', 'x55']
     return pd.DataFrame(features, columns=col_names)
-    return pd.DataFrame(features)
 
 
 # Function to predict results with competition dataset
@@ -234,20 +237,20 @@ def loading_datasets(location_zero, location_three, location_six, location_nine)
         print("\nShape of test set 6 = ", test_set_6.shape)
         print("Shape of test set 9 = ", test_set_9.shape)
 
-        full_set_0 = scale_to_unit(full_set_0)
-        full_set_3 = scale_to_unit(full_set_3)
-        full_set_6 = scale_to_unit(full_set_6)
-        full_set_9 = scale_to_unit(full_set_9)
+    full_set_0 = scale_to_unit(full_set_0)
+    full_set_6 = scale_to_unit(full_set_6)
+    full_set_3 = scale_to_unit(full_set_3)
+    full_set_9 = scale_to_unit(full_set_9)
 
-        train_set_0 = scale_to_unit(train_set_0)
-        train_set_3 = scale_to_unit(train_set_3)
-        train_set_6 = scale_to_unit(train_set_6)
-        train_set_9 = scale_to_unit(train_set_9)
+    train_set_0 = scale_to_unit(train_set_0)
+    train_set_3 = scale_to_unit(train_set_3)
+    train_set_6 = scale_to_unit(train_set_6)
+    train_set_9 = scale_to_unit(train_set_9)
 
-        test_set_0 = scale_to_unit(test_set_0)
-        test_set_3 = scale_to_unit(test_set_3)
-        test_set_6 = scale_to_unit(test_set_6)
-        test_set_9 = scale_to_unit(test_set_9)
+    test_set_0 = scale_to_unit(test_set_0)
+    test_set_3 = scale_to_unit(test_set_3)
+    test_set_6 = scale_to_unit(test_set_6)
+    test_set_9 = scale_to_unit(test_set_9)
 
     return full_set_0, full_set_3, full_set_6, full_set_9,\
            train_set_0, train_set_3, train_set_6, train_set_9, \
