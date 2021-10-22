@@ -5,6 +5,14 @@
 # Máster en Vision Artificial
 # Luis Rosario Tremoulet y Vicente Gilabert Maño.
 
+# Features used :   x1 -> height ** (1 / 3)
+#                   x2 -> sum of pixels in the first 5 rows
+#                   x3 -> width ** (1 / 3)
+#                   x4 -> h2
+#                   x5 -> (h2 / w1 + w3) ** 2
+#                   x6 -> w3 - h1 / h3
+#                   x7 - x55 -> Sum of a block of 4 pixels
+
 # [IMPORTS]
 import pickle
 import numpy as np
@@ -13,19 +21,18 @@ from matplotlib import pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import maxabs_scale
 
 # [GLOBAL VARIABLES]
-is_printing_shapes = False       # Do you want to print the datasets sizes ?
-is_showing_image = False         # Do you want to see the representation of the three's and seven's ?
-is_showing_extractions = False   # Do you want to see the extractions x1 and x2 ?
-is_saving_model = True         # Do you want to save the model into a file (with pickle) ?
-is_testing_model = True        # Do you want to test the model with the test set ?
-is_resulting_model = True      # Do you want to save the results from the 10.000 MNIST files ?
+is_printing_shapes = False      # Do you want to print the datasets sizes ?
+is_showing_image = False        # Do you want to see the representation of the three's and seven's ?
+is_showing_extractions = False  # Do you want to see the extractions x1 and x2 ?
+is_saving_model = True          # Do you want to save the model into a file (with pickle) ?
+is_testing_model = True         # Do you want to test the model with the test set ?
+is_resulting_model = True       # Do you want to save the results from the 10.000 MNIST files ?
 
 
 # To force that every run produces the same outcome (comment, or remove, to get randomness)
-#np.random.seed(seed=123)
+# np.random.seed(seed=123)
 
 # [FUNCTION DECLARATIONS]
 
@@ -54,7 +61,8 @@ def split_train_test(data, test_ratio):
     test_set = data.iloc[test_indices]
     return train_set.reset_index(drop=True), test_set.reset_index(drop=True)
 
-# Getting extraction's of the three's and seven's = x1, x2
+
+# Getting extraction's of the digit's = x1 to x55
 def feat_extraction(data, label, theta=0.5):
 
     features = np.zeros([data.shape[0], 7 + 49])  # <- allocate memory with zeros
@@ -106,9 +114,6 @@ def feat_extraction(data, label, theta=0.5):
                 features[k, itr] = x[a1: a2, a3: a4].sum()
                 itr += 1
 
-    #for i in range(1, 43):
-    #     features[:, i] = maxabs_scale(features[:, i])
-
     col_names = ['label', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10',
                  'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20',
                  'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30',
@@ -128,7 +133,7 @@ def result_model(model, transformer):
     reto1_dataset = transformer.transform(reto1_dataset)
     predictions_reto1 = model.predict(reto1_dataset)
 
-    # --- Replace 0 -> 3 and 1 -> 7.
+    # --- Replace 0 -> 0, 1 -> 3, 2 -> 6 and 3 -> 9.
     predictions_reto1 = np.array(predictions_reto1)
     replace = np.where(predictions_reto1 == 3, 9, predictions_reto1)
     replace = np.where(replace == 1, 3, replace)
@@ -158,7 +163,7 @@ def test_model(model, carac_test, label_test, show_cm=True):
 # Show plot with our features for both numbers.
 def show_extraction(extraction0, extraction3, extraction6, extraction9):
 
-    f1, ax = plt.subplots(3)  # 4 size of the subplot
+    f1, ax = plt.subplots(3)  # 3 size of the subplot
 
     ax[0].plot(jitter(extraction0['x1']), 'o', color="blue", ms=0.7)
     ax[0].plot(jitter(extraction3['x1']), 'x', color="red", ms=0.7)
@@ -181,10 +186,10 @@ def show_extraction(extraction0, extraction3, extraction6, extraction9):
     plt.show()
 
 
-# Function to show all the three's and seven's as pixels
+# Function to show all the digit's as pixels
 def show_image(set1, set2, set3, set4, index):
 
-    instance_id_to_show = index  # <- index of the instance of 3 and 7 that will be shown in a figure
+    instance_id_to_show = index  # <- index of the instance of the digit that will be shown in a figure
 
     # --- Plot the whole Data Sets
     f1, ax = plt.subplots(2, 4)  # 2 rows, 4 columns size of the subplot
@@ -253,8 +258,8 @@ def loading_datasets(location_zero, location_three, location_six, location_nine)
     test_set_9 = scale_to_unit(test_set_9)
 
     return full_set_0, full_set_3, full_set_6, full_set_9,\
-           train_set_0, train_set_3, train_set_6, train_set_9, \
-           test_set_0, test_set_3, test_set_6, test_set_9
+            train_set_0, train_set_3, train_set_6, train_set_9, \
+            test_set_0, test_set_3, test_set_6, test_set_9
 
 
 def main():
@@ -264,12 +269,12 @@ def main():
     train_set_0, train_set_3, train_set_6, train_set_9, \
     test_set_0, test_set_3, test_set_6, test_set_9 = loading_datasets('./Datasets/1000_cero.csv', './Datasets/1000_tres.csv', './Datasets/1000_seis.csv', './Datasets/1000_nueve.csv')
 
-    # --- Show image with some index (0 and 3 and 6 and 9).
+    # --- Show image with some index (0, 3, 6 and 9).
     if is_showing_image:
         index = 5
         show_image(train_set_0, train_set_3, train_set_6, train_set_9, index)
 
-    # --- Features extraction of training and testing datasets (3 and 7)
+    # --- Features extraction of training and testing datasets (0, 3, 6 and 9)
     extraction_train_set_0 = feat_extraction(train_set_0, 0)
     extraction_train_set_3 = feat_extraction(train_set_3, 1)
     extraction_train_set_6 = feat_extraction(train_set_6, 2)
