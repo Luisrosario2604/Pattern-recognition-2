@@ -5,8 +5,13 @@
 # Máster en Vision Artificial
 # Luis Rosario Tremoulet y Vicente Gilabert Maño.
 
-# Features used :   x1 -> sum of rows with pixels in the first 5 rows
-#                   x2 -> width ** (1 / 3)
+# Features used :   x1 -> height ** (1 / 3)
+#                   x2 -> sum of pixels in the first 5 rows
+#                   x3 -> width ** (1 / 3)
+#                   x4 -> h2
+#                   x5 -> (h2 / w1 + w3) ** 2
+#                   x6 -> w3 - h1 / h3
+#                   x7 - x55 -> Sum of a block of 4 pixels
 
 # [IMPORTS]
 import pickle
@@ -15,21 +20,19 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, mean_squared_error
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures
-from sklearn.pipeline import make_pipeline
-from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import MinMaxScaler
 
 # [GLOBAL VARIABLES]
 is_printing_shapes = False      # Do you want to print the datasets sizes ?
 is_showing_image = False        # Do you want to see the representation of the three's and seven's ?
-is_showing_extractions = True   # Do you want to see the extractions x1 and x2 ?
+is_showing_extractions = False  # Do you want to see the extractions x1 and x2 ?
 is_saving_model = True          # Do you want to save the model into a file (with pickle) ?
 is_testing_model = True         # Do you want to test the model with the test set ?
 is_resulting_model = True       # Do you want to save the results from the 10.000 MNIST files ?
 
 
 # To force that every run produces the same outcome (comment, or remove, to get randomness)
-np.random.seed(seed=123)
+# np.random.seed(seed=123)
 
 # [FUNCTION DECLARATIONS]
 
@@ -60,9 +63,9 @@ def split_train_test(data, test_ratio):
 
 
 # Getting extraction's of the digit's = x1 to x55
-def feat_extraction(data, label, theta=0.55):
+def feat_extraction(data, label, theta=0.5):
 
-    features = np.zeros([data.shape[0], 3])  # <- allocate memory with zeros
+    features = np.zeros([data.shape[0], 7 + 49])  # <- allocate memory with zeros
     data = data.values.reshape([data.shape[0], 28, 28])
     # -> axis 0: id of instance, axis 1: width(cols) , axis 2: height(rows)
     for k in range(data.shape[0]):
@@ -73,46 +76,79 @@ def feat_extraction(data, label, theta=0.55):
         sum_cols = x.sum(axis=0)  # <- axis0 of x, not of data!!
         indc = np.argwhere(sum_cols > theta * sum_cols.max())
         width = indc[-1] - indc[0]
+        col_3maxs = np.argsort(sum_cols)[-3:]
         # --height feature
         sum_rows = x.sum(axis=1)  # <- axis1 of x, not of data!!
+        indr = np.argwhere(sum_rows > theta * sum_rows.max())
+        height = indr[-1] - indr[0]
+        row_3maxs = np.argsort(sum_rows)[-3:]
 
         sum_rows_tmp1 = 0
         for tmp in range(6):
-            if sum_rows[tmp] > 0:
+            if sum_rows[tmp] > theta * sum_rows[tmp].max():
                 sum_rows_tmp1 += 1
 
-        x1 = sum_rows_tmp1
-        x2 = width ** (1 / 3)
+        x1 = height ** (1 / 3)
+        x2 = sum_rows_tmp1
+        x3 = width ** (1 / 3)
+        x4 = row_3maxs[1]
+        x5 = (row_3maxs[1] / (col_3maxs[0] + col_3maxs[2])) ** 2
+        x6 = col_3maxs[2] - row_3maxs[0] / row_3maxs[2]
+
         features[k, 0] = label
         features[k, 1] = x1
         features[k, 2] = x2
+        features[k, 3] = x3
+        features[k, 4] = x4
+        features[k, 5] = x5
+        features[k, 6] = x6
 
-    col_names = ['label', 'x1', 'x2']
+        jump = 3
+        itr = 7
+        for i in range(0, 7):
+            a1 = jump * i + i
+            a2 = jump * i + jump + i
+            for y in range(0, 7):
+                a3 = jump * y + y
+                a4 = jump * y + jump + y
+                features[k, itr] = x[a1: a2, a3: a4].sum()
+                itr += 1
+
+    col_names = ['label', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9', 'x10',
+                 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19', 'x20',
+                 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30',
+                 'x31', 'x32', 'x33', 'x34', 'x35', 'x36', 'x37', 'x38', 'x39', 'x40',
+                 'x41', 'x42', 'x43', 'x44', 'x45', 'x46', 'x47', 'x48', 'x49', 'x50',
+                 'x51', 'x52', 'x53', 'x54', 'x55']
     return pd.DataFrame(features, columns=col_names)
 
 
 # Function to predict results with competition dataset
-def result_model(model):
+def result_model(model, transformer):
 
     reto1_dataset = pd.read_csv("./Datasets/reto2_X.csv", header=None)
     reto1_dataset = scale_to_unit(reto1_dataset)
-    reto1_dataset = feat_extraction(reto1_dataset, -1)
+    reto1_dataset = feat_extraction(reto1_dataset, 2)
     reto1_dataset = reto1_dataset.drop(columns=['label'])
+    reto1_dataset = transformer.transform(reto1_dataset)
     predictions_reto1 = model.predict(reto1_dataset)
 
+    # --- Replace 0 -> 0, 1 -> 3, 2 -> 6 and 3 -> 9.
     predictions_reto1 = np.array(predictions_reto1)
+    replace = np.where(predictions_reto1 == 3, 9, predictions_reto1)
+    replace = np.where(replace == 1, 3, replace)
+    replace = np.where(replace == 2, 6, replace)
     # --- Save prediction in .csv file.
-    np.savetxt('Reto2_Ypred.csv', predictions_reto1, fmt='%i', delimiter=',')
+    np.savetxt('Reto2_Ypred.csv', replace, fmt='%i', delimiter=',')
 
 
 # Function to test model with our testing dataset
 def test_model(model, carac_test, label_test, show_cm=True):
 
     predictions = model.predict(carac_test)
-
     score = model.score(carac_test, label_test)
-    print("Score of the model: ", score * 100, "%")
-    print("Mean square error: ", mean_squared_error(label_test, predictions) * 100)
+    print("Score of the model: ", score)
+    print("Mean square error: ", mean_squared_error(label_test, predictions))
     cm = confusion_matrix(label_test, predictions, labels=model.classes_)
 
     if show_cm:
@@ -127,21 +163,28 @@ def test_model(model, carac_test, label_test, show_cm=True):
 # Show plot with our features for both numbers.
 def show_extraction(extraction0, extraction3, extraction6, extraction9):
 
-    f1, ax = plt.subplots(2)  # 3 size of the subplot
+    f1, ax = plt.subplots(3)  # 3 size of the subplot
 
-    ax[0].plot(jitter(extraction0['x1']), 'o', color="blue", ms=2)
-    ax[0].plot(jitter(extraction3['x1']), 'x', color="red", ms=2)
-    ax[0].plot(jitter(extraction6['x1']), 'v', color="black", ms=2)
-    ax[0].plot(jitter(extraction9['x1']), '>', color="yellow", ms=2)
-    ax[0].title.set_text("X1")
+    ax[0].plot(jitter(extraction0['x1']), 'o', color="blue", ms=0.7)
+    ax[0].plot(jitter(extraction3['x1']), 'x', color="red", ms=0.7)
+    ax[0].plot(jitter(extraction6['x1']), 'v', color="black", ms=0.7)
+    ax[0].plot(jitter(extraction9['x1']), ',', color="yellow", ms=0.7)
+    ax[0].title.set_text("NORM - Height ** (1/3)")
 
-    ax[1].plot(jitter(extraction0['x2']), 'o', color="blue", ms=2)
-    ax[1].plot(jitter(extraction3['x2']), 'x', color="red", ms=2)
-    ax[1].plot(jitter(extraction6['x2']), 'v', color="black", ms=2)
-    ax[1].plot(jitter(extraction9['x2']), '>', color="yellow", ms=2)
-    ax[1].title.set_text("X2")
+    ax[1].plot(jitter(extraction0['x2']), 'o', color="blue", ms=0.7)
+    ax[1].plot(jitter(extraction3['x2']), 'x', color="red", ms=0.7)
+    ax[1].plot(jitter(extraction6['x2']), 'v', color="black", ms=0.7)
+    ax[1].plot(jitter(extraction9['x2']), ',', color="yellow", ms=0.7)
+    ax[1].title.set_text("NORM - Count 6 firts pixels")
+
+    ax[2].plot(jitter(extraction0['x3']), 'o', color="blue", ms=0.7)
+    ax[2].plot(jitter(extraction3['x3']), 'x', color="red", ms=0.7)
+    ax[2].plot(jitter(extraction6['x3']), 'v', color="black", ms=0.7)
+    ax[2].plot(jitter(extraction9['x3']), ',', color="yellow", ms=0.7)
+    ax[2].title.set_text("NORM - Width")
 
     plt.show()
+
 
 # Function to show all the digit's as pixels
 def show_image(set1, set2, set3, set4, index):
@@ -218,8 +261,7 @@ def loading_datasets(location_zero, location_three, location_six, location_nine)
             train_set_0, train_set_3, train_set_6, train_set_9, \
             test_set_0, test_set_3, test_set_6, test_set_9
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import RFECV
+
 def main():
 
     # --- Load dataset and get splited and normalize data.
@@ -234,14 +276,14 @@ def main():
 
     # --- Features extraction of training and testing datasets (0, 3, 6 and 9)
     extraction_train_set_0 = feat_extraction(train_set_0, 0)
-    extraction_train_set_3 = feat_extraction(train_set_3, 3)
-    extraction_train_set_6 = feat_extraction(train_set_6, 6)
-    extraction_train_set_9 = feat_extraction(train_set_9, 9)
+    extraction_train_set_3 = feat_extraction(train_set_3, 1)
+    extraction_train_set_6 = feat_extraction(train_set_6, 2)
+    extraction_train_set_9 = feat_extraction(train_set_9, 3)
 
     extraction_test_set_0 = feat_extraction(test_set_0, 0)
-    extraction_test_set_3 = feat_extraction(test_set_3, 3)
-    extraction_test_set_6 = feat_extraction(test_set_6, 6)
-    extraction_test_set_9 = feat_extraction(test_set_9, 9)
+    extraction_test_set_3 = feat_extraction(test_set_3, 1)
+    extraction_test_set_6 = feat_extraction(test_set_6, 2)
+    extraction_test_set_9 = feat_extraction(test_set_9, 3)
 
     extraction_test_set_all = pd.concat([extraction_test_set_0, extraction_test_set_3, extraction_test_set_6, extraction_test_set_9], axis=0)
     extraction_train_set_all = pd.concat([extraction_train_set_0, extraction_train_set_3, extraction_train_set_6, extraction_train_set_9], axis=0)
@@ -250,38 +292,28 @@ def main():
     if is_showing_extractions:
         show_extraction(extraction_train_set_0, extraction_train_set_3, extraction_train_set_6, extraction_train_set_9)
 
+    transformer = MinMaxScaler()
     label_train = extraction_train_set_all.iloc[:, 0]
     label_test = extraction_test_set_all.iloc[:, 0]
+    carac_train = transformer.fit_transform(extraction_train_set_all.iloc[:, 1: 56])
+    carac_test = transformer.transform(extraction_test_set_all.iloc[:, 1: 56])
 
-    carac_train = extraction_train_set_all.iloc[:, 1: 3]
-    carac_test = extraction_test_set_all.iloc[:, 1: 3]
+    # --- Create logistic regresion model and train (fit)
+    model = LogisticRegression(solver='lbfgs', max_iter=50000)
+    model.fit(carac_train, label_train)
 
-
-# --- Create logistic regresion model and train (fit)
-    model = make_pipeline(PolynomialFeatures(),
-                          StandardScaler(),
-                          LogisticRegression(solver='lbfgs', max_iter=50000))
-
-    params = {
-        "polynomialfeatures__degree": [2, 3, 4],
-    }
-
-    grid = GridSearchCV(model, param_grid=params, cv=4)
-
-    grid.fit(carac_train, label_train)
-
-# --- Save model
+    # --- Save model
     if is_saving_model:
         filename = 'trained_model.sav'
-        pickle.dump(grid, open(filename, 'wb'))
+        pickle.dump(model, open(filename, 'wb'))
 
     # --- Test model with test data
     if is_testing_model:
-        test_model(grid, carac_test, label_test, show_cm=False)
+        test_model(model, carac_test, label_test, show_cm=False)
 
     # --- Get prediction using our model and competition dataset. Generate .csv file with results.
     if is_resulting_model:
-        result_model(grid)
+        result_model(model, transformer)
 
 
 # [MAIN BODY]
