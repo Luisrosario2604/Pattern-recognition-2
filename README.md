@@ -79,15 +79,15 @@ These are some examples of the MNIST database
 
 These are the 2 features selected
 
-![MNIST](./imgs/Figure_2.png)
+![2 features](./imgs/Figure_2.png)
 
 These are some results of the model (with 2 features) (score = 0.8361)
 
-![MNIST](./imgs/Figure_3.png)
+![Score 2 features](./imgs/Figure_3.png)
 
 These are others results of the model (with 56 features) (score = 0.98)
 
-![MNIST](./imgs/Figure_4.png)
+![Score 56 features](./imgs/Figure_4.png)
 
 ## Authors
 
