@@ -4,9 +4,9 @@
 
 The objective of this project is to construct a multi-class classifier.
 
-You will need to be able to separate MNIST images representing the numbers 0, 3, 6 and 9.
+The goal is to separate MNIST images representing the numbers 0, 3, 6 and 9.
 
-To do so, only two features (extracted from the image or obtained by feature engineering) will be constructed.
+To do so, only two features (extracted from the images or obtained by feature engineering) will be constructed.
 
 And then, optionally, you will be able to increase the dimensionality (by transformations).
 
@@ -71,21 +71,21 @@ $ python ./src/main_56.py
         ├── main_56.py
         └── visualization.py
 
-## Exemples
+## Examples
 
-This is some examples of the MNIST database
+These are some examples of the MNIST database
 
 ![MNIST](./imgs/Figure_1.png)
 
-This are the 2 features selected
+These are the 2 features selected
 
 ![MNIST](./imgs/Figure_2.png)
 
-This are some results of the model (with 2 features) (score = 0.8361)
+These are some results of the model (with 2 features) (score = 0.8361)
 
 ![MNIST](./imgs/Figure_3.png)
 
-This are others results of the model (with 56 features) (score = 0.98)
+These are others results of the model (with 56 features) (score = 0.98)
 
 ![MNIST](./imgs/Figure_4.png)
 
